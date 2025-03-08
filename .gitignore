@@ -1,0 +1,13 @@
+
+# Ignore all __pycache__ folders recursively
+**/__pycache__/
+
+# Ignore video files
+*.mp4
+
+*.jpg
+
+*.rar
+
+# Ignore image files
+*.png
