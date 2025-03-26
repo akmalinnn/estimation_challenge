@@ -1,128 +1,170 @@
-import os
-import json
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torchvision.transforms as transforms
-import torchvision.models as models
-from torch.utils.data import Dataset, DataLoader, random_split
-from PIL import Image
+from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
+import timm  # Use timm instead of efficientnet_pytorch
+from pathlib import Path
+import numpy as np
+import json
+import multiprocessing
+import matplotlib.pyplot as plt
 
-# ================================
-# 1. Dataset Class
-# ================================
-class OpticalFlowDataset(Dataset):
-    def __init__(self, image_dir, json_path, transform=None):
-        self.image_dir = image_dir
-        self.transform = transform
+# Check if CUDA is available
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        with open(json_path, "r") as f:
+# Model Configuration
+v = 0     # EfficientNet version (b0)
+in_c = 2  # Optical flow has 2 channels
+num_c = 1 # Predicting a single value (speed)
+
+# Load EfficientNet model using timm
+model = timm.create_model(f'efficientnet_b{v}', pretrained=True, num_classes=num_c)
+model.conv_stem = nn.Conv2d(in_c, model.conv_stem.out_channels, 
+                            kernel_size=model.conv_stem.kernel_size, 
+                            stride=model.conv_stem.stride, 
+                            padding=model.conv_stem.padding, 
+                            bias=False)
+# Add dropout for regularization
+model.classifier = nn.Sequential(
+    nn.Dropout(0.3),  # Dropout to prevent overfitting
+    model.classifier
+)
+model.to(device)
+
+# Dataset Class
+class OFDataset(Dataset):
+    def __init__(self, of_dir, label_f, normalize=True):
+        self.of_dir = Path(of_dir)
+        with open(label_f, "r") as f:
             self.labels = json.load(f)
 
-        self.image_files = list(self.labels.keys())
+        self.files = sorted(self.labels.keys())  # Ensure consistent order
+        self.normalize = normalize
 
+        # Extract min and max speed dynamically
+        speeds = [self.labels[f]["speed"] for f in self.files]
+        self.min_speed = min(speeds)
+        self.max_speed = max(speeds)
+        
+        print(f"Speed Normalization: min={self.min_speed}, max={self.max_speed}")
+    
     def __len__(self):
-        return len(self.image_files)
+        return len(self.files)
+
 
     def __getitem__(self, idx):
-        img_name = self.image_files[idx]
-        img_path = os.path.join(self.image_dir, img_name)
+        file_name = self.files[idx]
+        npy_path = self.of_dir / f"{file_name.replace('.jpg', '.npy')}"
 
-        image = Image.open(img_path).convert("RGB")
-        label = self.labels[img_name]["speed"]
+        if not npy_path.exists():
+            raise FileNotFoundError(f"Missing optical flow file: {npy_path}")
 
-        if self.transform:
-            image = self.transform(image)
+        # Load optical flow
+        of_array = np.load(npy_path).astype(np.float32)
+        of_tensor = torch.tensor(of_array, dtype=torch.float32)
+        if of_tensor.dim() == 3:
+            of_tensor = of_tensor.permute(2, 0, 1)  # (H, W, C) → (C, H, W)
 
-        return image, torch.tensor(label, dtype=torch.float32)
+        # Normalize speed
+        speed = self.labels[file_name]["speed"]
+        if self.normalize:
+            speed = (speed - self.min_speed) / (self.max_speed - self.min_speed)
 
+        speed_label = torch.tensor([speed], dtype=torch.float32)
 
-# ================================
-# 2. Data Preparation
-# ================================
-def get_data_loaders(image_dir, json_path, batch_size=16, train_split=0.8):
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize([0.5], [0.5])
-    ])
-
-    dataset = OpticalFlowDataset(image_dir, json_path, transform)
-    
-    train_size = int(train_split * len(dataset))
-    test_size = len(dataset) - train_size
-    train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
-
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
-
-    return train_loader, test_loader
+        return of_tensor, speed_label
 
 
-# ================================
-# 3. Load EfficientNet
-# ================================
-def get_model():
-    model = models.efficientnet_b0(pretrained=True)  # Load pretrained EfficientNet-B0
-    num_features = model.classifier[1].in_features
+# Dataset Directory and JSON Label File
+of_dir = "data/flow"
+labels_f = "data/data_filtered.json"
 
-    model.classifier = nn.Sequential(
-        nn.Linear(num_features, 128),
-        nn.ReLU(),
-        nn.Linear(128, 1)  # Output one value (speed)
-    )
+ds = OFDataset(of_dir, labels_f)
 
-    return model
+# Split Dataset (80% Train, 20% Validation)
+ds_size = len(ds)
+indices = list(range(ds_size))
+train_split = 0.8
+split = int(np.floor(train_split * ds_size))
+train_idx, val_idx = indices[:split], indices[split:]
+
+# Samplers
+train_sampler = SubsetRandomSampler(train_idx)
+val_sampler = SubsetRandomSampler(val_idx)
+
+# DataLoader with multi-processing
+cpu_cores = min(4, multiprocessing.cpu_count())  # Limit to 4 workers for stability
+train_dl = DataLoader(ds, batch_size=32, sampler=train_sampler, num_workers=cpu_cores, pin_memory=(device == 'cuda'))
+val_dl = DataLoader(ds, batch_size=32, sampler=val_sampler, num_workers=cpu_cores, pin_memory=(device == 'cuda'))
+
+# Training Configuration
+epochs = 1000
+criterion = nn.MSELoss()
+opt = optim.Adam(model.parameters(), lr=0.0001)  # Reduced learning rate
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, mode='min', factor=0.5, patience=5)
 
 
-# ================================
-# 4. Train Function
-# ================================
-def train(model, train_loader, test_loader, device, epochs=10, lr=0.001):
-    model = model.to(device)
-    criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+# Store losses for visualization
+train_losses = []
+val_losses_epoch = []
 
-    for epoch in range(epochs):
+# Training Loop
+if __name__ == '__main__':
+    for epoch in range(1, epochs + 1):  # Start from 1
         model.train()
-        total_loss = 0
-
-        for images, speeds in train_loader:
-            images, speeds = images.to(device), speeds.to(device).unsqueeze(1)
-
-            optimizer.zero_grad()
-            outputs = model(images)
-            loss = criterion(outputs, speeds)
+        epoch_train_loss = 0
+        for of_tensor, label in train_dl:
+            of_tensor, label = of_tensor.to(device), label.to(device)
+            opt.zero_grad()
+            pred = torch.squeeze(model(of_tensor))
+            loss = criterion(pred, label)
             loss.backward()
-            optimizer.step()
+            opt.step()
+            epoch_train_loss += loss.item()
+        
+        # Hitung rata-rata loss training
+        train_loss = epoch_train_loss / len(train_dl)
+        train_losses.append(train_loss)
 
-            total_loss += loss.item()
+        # Validation Loop
+        model.eval()
+        epoch_val_loss = 0
+        with torch.no_grad():
+            for of_tensor, label in val_dl:
+                of_tensor, label = of_tensor.to(device), label.to(device)
+                pred = torch.squeeze(model(of_tensor))
+                loss = criterion(pred, label)
+                epoch_val_loss += loss.item()
+        
+       
+        val_loss = epoch_val_loss / len(val_dl)
+        val_losses_epoch.append(val_loss)
 
-        print(f"Epoch [{epoch+1}/{epochs}], Loss: {total_loss / len(train_loader):.4f}")
+        # Adjust learning rate
+        scheduler.step(val_loss)
 
-    print("Training complete!")
-
-
-# ================================
-# 5. Save Model
-# ================================
-def save_model(model, filename="b0.pth"):
-    torch.save(model.state_dict(), filename)
-    print(f"Model saved as {filename}")
+        print(f"Epoch {epoch}: Train Loss = {train_loss:.4f}, Validation Loss = {val_loss:.4f}")
 
 
-# ================================
-# 6. Main Execution
-# ================================
-if __name__ == "__main__":
-    IMAGE_DIR = "data/images"  # Change this
-    JSON_PATH = "data/data_filtered.json"  # Change this
-    BATCH_SIZE = 16
-    EPOCHS = 10
-    LEARNING_RATE = 0.001
-    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if epoch % 100 == 0:
+            model_path = f"efficientnet_b{v}_epoch{epoch}.pth"
+            torch.save(model.state_dict(), model_path)
+            print(f"Model disimpan: {model_path}")
 
-    train_loader, test_loader = get_data_loaders(IMAGE_DIR, JSON_PATH, BATCH_SIZE)
-    model = get_model()
-    train(model, train_loader, test_loader, DEVICE, EPOCHS, LEARNING_RATE)
-    save_model(model)
+    final_model_path = f"efficientnet_b{v}_final.pth"
+    torch.save(model.state_dict(), final_model_path)
+    print(f"Model final disimpan: {final_model_path}")
+
+    
+    plt.figure(figsize=(8, 5))
+    plt.plot(range(1, epochs+1), train_losses, label="Train Loss", marker="o")
+    plt.plot(range(1, epochs+1), val_losses_epoch, label="Validation Loss", marker="s")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Training and Validation Loss")
+    plt.legend()
+    plt.grid(True)
+    
+    
+    plt.savefig("loss_plot.png", dpi=300)
+    print("Loss plot disimpan sebagai loss_plot.png")

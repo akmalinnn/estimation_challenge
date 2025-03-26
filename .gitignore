@@ -11,3 +11,7 @@
 
 # Ignore image files
 *.png
+
+*.npy
+
+*.pth

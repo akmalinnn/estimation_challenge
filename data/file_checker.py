@@ -2,7 +2,7 @@ import os
 import json
 
 # Define file paths
-folder_path = "images"
+folder_path = "flow"
 json_file = "data_filtered.json"
 
 # Load JSON data
@@ -10,7 +10,7 @@ with open(json_file, "r") as f:
     json_data = json.load(f)
 
 # Get list of jpg files in the folder
-folder_files = {file for file in os.listdir(folder_path) if file.endswith(".jpg")}
+folder_files = {file for file in os.listdir(folder_path) if file.endswith(".npy")}
 
 # Get list of jpg files from JSON
 json_files = set(json_data.keys())
