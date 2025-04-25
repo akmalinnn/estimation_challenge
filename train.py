@@ -128,7 +128,7 @@ def train(model, epochs, train_loader, test_loader, criterion,
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
-    # Create directory for plots if it doesn't exist
+   
     plot_dir = os.path.join(os.path.dirname(RESULTS_PATH), 'training_plots')
     os.makedirs(plot_dir, exist_ok=True)
 
@@ -179,11 +179,11 @@ def train(model, epochs, train_loader, test_loader, criterion,
         if scheduler:
             scheduler.step(test_err)
 
-        # Save plots every 10 epochs
+        
         if (epoch + 1) % 10 == 0 :
             plt.figure(figsize=(12, 4))
             
-            # Plot Training and Test Error
+            
             plt.subplot(1, 2, 1)
             plt.plot(epochs_list, train_errors, label='Training Error')
             plt.plot(epochs_list, test_errors, label='Test Error')
@@ -193,7 +193,7 @@ def train(model, epochs, train_loader, test_loader, criterion,
             plt.legend()
             plt.grid(True)
             
-            # Plot Training Loss
+        
             plt.subplot(1, 2, 2)
             plt.plot(epochs_list, train_losses, label='Training Loss', color='orange')
             plt.xlabel('Epoch')
