@@ -1,170 +1,222 @@
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
-import timm  # Use timm instead of efficientnet_pytorch
-from pathlib import Path
 import numpy as np
-import json
-import multiprocessing
+import pandas as pd
+import torch
 import matplotlib.pyplot as plt
+import os
 
-# Check if CUDA is available
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-# Model Configuration
-v = 0     # EfficientNet version (b0)
-in_c = 2  # Optical flow has 2 channels
-num_c = 1 # Predicting a single value (speed)
-
-# Load EfficientNet model using timm
-model = timm.create_model(f'efficientnet_b{v}', pretrained=True, num_classes=num_c)
-model.conv_stem = nn.Conv2d(in_c, model.conv_stem.out_channels, 
-                            kernel_size=model.conv_stem.kernel_size, 
-                            stride=model.conv_stem.stride, 
-                            padding=model.conv_stem.padding, 
-                            bias=False)
-# Add dropout for regularization
-model.classifier = nn.Sequential(
-    nn.Dropout(0.3),  # Dropout to prevent overfitting
-    model.classifier
-)
-model.to(device)
-
-# Dataset Class
-class OFDataset(Dataset):
-    def __init__(self, of_dir, label_f, normalize=True):
-        self.of_dir = Path(of_dir)
-        with open(label_f, "r") as f:
-            self.labels = json.load(f)
-
-        self.files = sorted(self.labels.keys())  # Ensure consistent order
-        self.normalize = normalize
-
-        # Extract min and max speed dynamically
-        speeds = [self.labels[f]["speed"] for f in self.files]
-        self.min_speed = min(speeds)
-        self.max_speed = max(speeds)
-        
-        print(f"Speed Normalization: min={self.min_speed}, max={self.max_speed}")
+# def evaluate(model, data_loader, device):
+#     """
+#     Calculate classification error (%) for given model
+#     and data set.
     
-    def __len__(self):
-        return len(self.files)
+#     Parameters:
+    
+#     - model: A Trained Pytorch Model 
+#     - data_loader: A Pytorch data loader object
+#     """
+    
+#     y_true = np.array([], dtype=np.int)
+#     y_pred = np.array([], dtype=np.int)
+    
+#     with torch.no_grad():
+#         for data in data_loader:
+#             inputs, labels = data
+#             inputs, labels = inputs.to(device), labels.to(device)
+#             outputs = model(inputs)
+#             _, predicted = torch.max(outputs.data, 1)
+            
+#             y_true = np.concatenate((y_true, labels.cpu()))
+#             y_pred = np.concatenate((y_pred, predicted.cpu()))
+    
+#     error = np.sum(y_pred != y_true) / len(y_true)
+#     return error
+
+def evaluate(model, data_loader, device):
+    model.eval()
+    criterion = torch.nn.MSELoss()
+    total_loss = 0.0
+    with torch.no_grad():
+        for inputs, targets in data_loader:
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs = model(inputs).squeeze()
+            loss = criterion(outputs, targets)
+            total_loss += loss.item() * inputs.size(0)
+    return total_loss / len(data_loader.dataset)
 
 
-    def __getitem__(self, idx):
-        file_name = self.files[idx]
-        npy_path = self.of_dir / f"{file_name.replace('.jpg', '.npy')}"
+# def train(model, epochs, train_loader, test_loader, criterion, 
+#           optimizer, RESULTS_PATH, scheduler=None, MODEL_PATH=None):
+#     """
+#     End to end training as described by the original resnet paper:
+#     https://arxiv.org/abs/1512.03385
+    
+#     Parameters
+#     ----------------
+    
+#     - model: The PyTorch model to be trained
+#     - n:   Determines depth of the neural network 
+#            as described in paper
+#     - train_loader: 
+#            PyTorch dataloader object for training set
+#     - test_loader: 
+#            PyTorch dataloader object for test set
+#     """
+    
+#     # Run on GPU if available
+#     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#     print(device)
+#     model.to(device)
+    
+#     # Training loop
+#     # -------------------------------
+#     cols       = ['epoch', 'train_loss', 'train_err', 'test_err']
+#     results_df = pd.DataFrame(columns=cols).set_index('epoch')
+#     print('Epoch \tBatch \tNLLLoss_Train')
+    
+#     for epoch in range(epochs):  # loop over the dataset multiple times
+        
+#         model.train()
+#         running_loss  = 0.0
+#         best_test_err = 1.0
+#         for i, data in enumerate(train_loader, 0):   # Do a batch iteration
+            
+#             # get the inputs
+#             inputs, labels = data
+#             inputs, labels = inputs.to(device), labels.to(device)
+            
+#             # zero the parameter gradients
+#             optimizer.zero_grad()
+            
+#             # forward + backward + optimize
+#             outputs = model(inputs)
+#             loss = criterion(outputs, labels)
+#             loss.backward()
+#             optimizer.step()
+            
+#             # print average loss for last 50 mini-batches
+#             running_loss += loss.item()
+#             if i % 50 == 49:
+#                 print('%d \t%d \t%.3f' %
+#                       (epoch + 1, i + 1, running_loss / 50))
+#                 running_loss = 0.0
+        
+#         if scheduler:
+#             scheduler.step()
+        
+#         # Record metrics
+#         model.eval()
+#         train_loss = loss.item()
+#         train_err = evaluate(model, train_loader, device)
+#         test_err = evaluate(model, test_loader, device)
+#         results_df.loc[epoch] = [train_loss, train_err, test_err]
+#         results_df.to_csv(RESULTS_PATH)
+#         print(f'train_err: {train_err} test_err: {test_err}')
+        
+#         # Save best model
+#         if MODEL_PATH and (test_err < best_test_err):
+#             torch.save(model.state_dict(), MODEL_PATH)
+#             best_test_err = test_err
+        
+        
+    
+#     print('Finished Training')
+#     model.eval()
+#     return model
 
-        if not npy_path.exists():
-            raise FileNotFoundError(f"Missing optical flow file: {npy_path}")
+def train(model, epochs, train_loader, test_loader, criterion,
+          optimizer, RESULTS_PATH, scheduler=None, MODEL_PATH=None):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model.to(device)
 
-        # Load optical flow
-        of_array = np.load(npy_path).astype(np.float32)
-        of_tensor = torch.tensor(of_array, dtype=torch.float32)
-        if of_tensor.dim() == 3:
-            of_tensor = of_tensor.permute(2, 0, 1)  # (H, W, C) → (C, H, W)
+    # Create directory for plots if it doesn't exist
+    plot_dir = os.path.join(os.path.dirname(RESULTS_PATH), 'training_plots')
+    os.makedirs(plot_dir, exist_ok=True)
 
-        # Normalize speed
-        speed = self.labels[file_name]["speed"]
-        if self.normalize:
-            speed = (speed - self.min_speed) / (self.max_speed - self.min_speed)
+    cols = ['epoch', 'train_loss', 'train_err', 'test_err']
+    results_df = pd.DataFrame(columns=cols).set_index('epoch')
+    print('Epoch \tBatch \tLoss_Train')
 
-        speed_label = torch.tensor([speed], dtype=torch.float32)
+    best_test_err = float('inf')
+    
+    # Initialize lists to store metrics for plotting
+    train_losses = []
+    train_errors = []
+    test_errors = []
+    epochs_list = []
 
-        return of_tensor, speed_label
-
-
-# Dataset Directory and JSON Label File
-of_dir = "data/flow"
-labels_f = "data/data_filtered.json"
-
-ds = OFDataset(of_dir, labels_f)
-
-# Split Dataset (80% Train, 20% Validation)
-ds_size = len(ds)
-indices = list(range(ds_size))
-train_split = 0.8
-split = int(np.floor(train_split * ds_size))
-train_idx, val_idx = indices[:split], indices[split:]
-
-# Samplers
-train_sampler = SubsetRandomSampler(train_idx)
-val_sampler = SubsetRandomSampler(val_idx)
-
-# DataLoader with multi-processing
-cpu_cores = min(4, multiprocessing.cpu_count())  # Limit to 4 workers for stability
-train_dl = DataLoader(ds, batch_size=32, sampler=train_sampler, num_workers=cpu_cores, pin_memory=(device == 'cuda'))
-val_dl = DataLoader(ds, batch_size=32, sampler=val_sampler, num_workers=cpu_cores, pin_memory=(device == 'cuda'))
-
-# Training Configuration
-epochs = 1000
-criterion = nn.MSELoss()
-opt = optim.Adam(model.parameters(), lr=0.0001)  # Reduced learning rate
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(opt, mode='min', factor=0.5, patience=5)
-
-
-# Store losses for visualization
-train_losses = []
-val_losses_epoch = []
-
-# Training Loop
-if __name__ == '__main__':
-    for epoch in range(1, epochs + 1):  # Start from 1
+    for epoch in range(epochs):
         model.train()
-        epoch_train_loss = 0
-        for of_tensor, label in train_dl:
-            of_tensor, label = of_tensor.to(device), label.to(device)
-            opt.zero_grad()
-            pred = torch.squeeze(model(of_tensor))
-            loss = criterion(pred, label)
+        running_loss = 0.0
+        
+        for i, data in enumerate(train_loader, 0):
+            inputs, labels = data
+            inputs, labels = inputs.to(device), labels.to(device)
+            optimizer.zero_grad()
+            outputs = model(inputs).squeeze()
+            loss = criterion(outputs, labels)
             loss.backward()
-            opt.step()
-            epoch_train_loss += loss.item()
-        
-        # Hitung rata-rata loss training
-        train_loss = epoch_train_loss / len(train_dl)
-        train_losses.append(train_loss)
+            optimizer.step()
+            running_loss += loss.item()
+            if i % 50 == 49:
+                print('%d \t%d \t%.3f' % (epoch + 1, i + 1, running_loss / 50))
+                running_loss = 0.0
 
-        # Validation Loop
         model.eval()
-        epoch_val_loss = 0
-        with torch.no_grad():
-            for of_tensor, label in val_dl:
-                of_tensor, label = of_tensor.to(device), label.to(device)
-                pred = torch.squeeze(model(of_tensor))
-                loss = criterion(pred, label)
-                epoch_val_loss += loss.item()
+        train_loss = loss.item()
+        train_err = evaluate(model, train_loader, device)
+        test_err = evaluate(model, test_loader, device)
         
-       
-        val_loss = epoch_val_loss / len(val_dl)
-        val_losses_epoch.append(val_loss)
+        # Store metrics
+        train_losses.append(train_loss)
+        train_errors.append(train_err)
+        test_errors.append(test_err)
+        epochs_list.append(epoch + 1)
+        
+        results_df.loc[epoch] = [train_loss, train_err, test_err]
+        results_df.to_csv(RESULTS_PATH)
+        print(f'train_err: {train_err} test_err: {test_err}')
 
-        # Adjust learning rate
-        scheduler.step(val_loss)
+        if scheduler:
+            scheduler.step(test_err)
 
-        print(f"Epoch {epoch}: Train Loss = {train_loss:.4f}, Validation Loss = {val_loss:.4f}")
+        # Save plots every 10 epochs
+        if (epoch + 1) % 10 == 0 :
+            plt.figure(figsize=(12, 4))
+            
+            # Plot Training and Test Error
+            plt.subplot(1, 2, 1)
+            plt.plot(epochs_list, train_errors, label='Training Error')
+            plt.plot(epochs_list, test_errors, label='Test Error')
+            plt.xlabel('Epoch')
+            plt.ylabel('Error')
+            plt.title(f'Training Progress (Epoch {epoch+1})')
+            plt.legend()
+            plt.grid(True)
+            
+            # Plot Training Loss
+            plt.subplot(1, 2, 2)
+            plt.plot(epochs_list, train_losses, label='Training Loss', color='orange')
+            plt.xlabel('Epoch')
+            plt.ylabel('Loss')
+            plt.title(f'Training Loss (Epoch {epoch+1})')
+            plt.legend()
+            plt.grid(True)
+            
+            plt.tight_layout()
+            plot_path = os.path.join(plot_dir, f'training_epoch_{epoch+1:04d}.png')
+            plt.savefig(plot_path)
+            plt.close()
+            print(f'Saved training plot to {plot_path}')
 
+        if epoch % 100 == 99:
+            if MODEL_PATH:
+                torch.save(model.state_dict(), MODEL_PATH)
+                print(f"Model saved at epoch {epoch + 1}")
 
-        if epoch % 100 == 0:
-            model_path = f"efficientnet_b{v}_epoch{epoch}.pth"
-            torch.save(model.state_dict(), model_path)
-            print(f"Model disimpan: {model_path}")
+        if MODEL_PATH and (test_err < best_test_err):
+            torch.save(model.state_dict(), MODEL_PATH)
+            best_test_err = test_err
 
-    final_model_path = f"efficientnet_b{v}_final.pth"
-    torch.save(model.state_dict(), final_model_path)
-    print(f"Model final disimpan: {final_model_path}")
-
-    
-    plt.figure(figsize=(8, 5))
-    plt.plot(range(1, epochs+1), train_losses, label="Train Loss", marker="o")
-    plt.plot(range(1, epochs+1), val_losses_epoch, label="Validation Loss", marker="s")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.title("Training and Validation Loss")
-    plt.legend()
-    plt.grid(True)
-    
-    
-    plt.savefig("loss_plot.png", dpi=300)
-    print("Loss plot disimpan sebagai loss_plot.png")
+    print('Finished Training')
+    model.eval()
+    return model

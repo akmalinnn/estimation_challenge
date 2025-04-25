@@ -10,8 +10,14 @@
 *.rar
 
 # Ignore image files
-*.png
+# *.png
 
 *.npy
 
 *.pth
+
+*.pt
+
+temp
+data/comma_flow
+
