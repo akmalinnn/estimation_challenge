@@ -1,28 +1,16 @@
-import numpy as np
 import torch
+from torch.utils.data import DataLoader
+import numpy as np
 
-
-def calculate_normalisation_params(train_loader, test_loader):
+def calculate_normalisation_params(dataset):
     """
-    Calculate the mean and standard deviation of each channel
-    for all observations in training and test datasets. The
-    results can then be used for normalisation
-    """ 
-    chan0 = np.array([])
-    chan1 = np.array([])
+    Calculates mean and std per channel directly from the dataset.
+    Assumes each sample returns (tensor[C,H,W], label).
+    """
+    loader = DataLoader(dataset, batch_size=len(dataset), shuffle=False, num_workers=0)
+    flow_batch, _ = next(iter(loader))  #  [N, C, H, W]
 
-    for i, data in enumerate(train_loader, 0):
-        images, _ = data
-        chan0 = np.concatenate((chan0, images[:, 0, :, :].cpu().flatten()))
-        chan1 = np.concatenate((chan0, images[:, 1, :, :].cpu().flatten()))
+    mean = flow_batch.mean(dim=[0, 2, 3])  
+    std = flow_batch.std(dim=[0, 2, 3])    
 
-        
-    for i, data in enumerate(test_loader, 0):
-        images, _ = data
-        chan0 = np.concatenate((chan0, images[:, 0, :, :].cpu().flatten()))
-        chan1 = np.concatenate((chan0, images[:, 1, :, :].cpu().flatten()))
-        
-    means = [np.mean(chan0), np.mean(chan1)]
-    stds  = [np.std(chan0), np.std(chan1)]
-    
-    return means, stds
+    return mean.tolist(), std.tolist()

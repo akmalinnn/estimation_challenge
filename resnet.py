@@ -135,8 +135,13 @@ class ResNet(nn.Module):
         # self.fcOut   = nn.Linear(64, 10, bias=True)
         # self.softmax = nn.LogSoftmax(dim=-1)
 
-        self.fcOut = nn.Linear(64, 1)  # Predict single value (speed)
-
+        self.fcOut = nn.Sequential(
+            nn.Linear(64, 16),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(16, 1),
+            # nn.Softmax(dim=1)
+        )
         
         # Initilise weights in fully connected layer 
         for m in self.modules():

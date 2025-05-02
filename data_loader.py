@@ -3,20 +3,22 @@ import numpy as np
 import json
 from pathlib import Path
 import torch
+from torchvision import transforms 
+
 
 class OFDataset(Dataset):
-    def __init__(self, of_dir, label_json):
+    def __init__(self, of_dir, label_json, transform=None):
 
         self.of_dir = Path(of_dir)
         self.labels = json.load(open(label_json))
         self.files = sorted(self.of_dir.glob("diff_flow_*.npy"))
         self.samples = []
 
+        self.transform = transform
+
         # print(f"Total .npy files found: {len(self.files)}")
         # print(f"Example .npy file name: {[f.name for f in self.files[:3]]}")
         # print(f"Example label keys: {list(self.labels.keys())[:5]}")
-
-
 
 
         for i in range(len(self.files) - 2):
@@ -41,4 +43,7 @@ class OFDataset(Dataset):
             of_tensor = of_tensor[:, :, :2]
         of_tensor = np.transpose(of_tensor, (2, 0, 1))
         of_tensor = torch.tensor(of_tensor, dtype=torch.float32)
+
+        if self.transform:
+            of_tensor = self.transform(of_tensor)
         return of_tensor, torch.tensor(label, dtype=torch.float32)

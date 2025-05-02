@@ -38,7 +38,7 @@ batch_size = 128
 train_transform = transforms.Compose([
     # 4 pixels are padded on each side, 
     transforms.Pad(4),
-    # a 32×32 crop is randomly sampled from the 
+    # a 32ï¿½32 crop is randomly sampled from the 
     # padded image or its horizontal flip.
     transforms.RandomHorizontalFlip(0.5),
     transforms.RandomCrop(32),
@@ -47,7 +47,7 @@ train_transform = transforms.Compose([
 
 test_transform = transforms.Compose([
     # For testing, we only evaluate the single 
-    # view of the original 32×32 image.
+    # view of the original 32ï¿½32 image.
     transforms.ToTensor()
 ])
 
@@ -91,7 +91,7 @@ train_transform = transforms.Compose([
 
 test_transform = transforms.Compose([
     # For testing, we only evaluate the single 
-    # view of the original 32×32 image.
+    # view of the original 32ï¿½32 image.
     transforms.ToTensor()
 ])
 
@@ -115,8 +115,8 @@ print(f'stds: {stds}')
 
 # [x] simple data augmentation in [24]
 # [x] 4 pixels are padded on each side, 
-# [x] and a 32×32 crop is randomly sampled from the padded image or its horizontal flip.
-# [x] For testing, we only evaluate the single view of the original 32×32 image.
+# [x] and a 32ï¿½32 crop is randomly sampled from the padded image or its horizontal flip.
+# [x] For testing, we only evaluate the single view of the original 32ï¿½32 image.
 
 
 # Normalisation parameters fo CIFAR10
@@ -131,7 +131,7 @@ normalize = transforms.Normalize(
 train_transform = transforms.Compose([
     # 4 pixels are padded on each side, 
     transforms.Pad(4),
-    # a 32×32 crop is randomly sampled from the 
+    # a 32ï¿½32 crop is randomly sampled from the 
     # padded image or its horizontal flip.
     transforms.RandomHorizontalFlip(0.5),
     transforms.RandomCrop(32),
@@ -141,7 +141,7 @@ train_transform = transforms.Compose([
 
 test_transform = transforms.Compose([
     # For testing, we only evaluate the single 
-    # view of the original 32×32 image.
+    # view of the original 32ï¿½32 image.
     transforms.ToTensor(),
     normalize
 ])
