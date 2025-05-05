@@ -1,49 +1,113 @@
-from torch.utils.data import Dataset
-import numpy as np
-import json
-from pathlib import Path
 import torch
-from torchvision import transforms 
+import torch.utils.data as data
+import numpy as np
+import os
+import json
+import random
+from collections import Counter
 
+class OFDatasetClf(data.Dataset):
+    def __init__(self, json_file, root_dir, split, balance=True):
+        self.root_dir = root_dir
+        self.balance = balance
 
-class OFDataset(Dataset):
-    def __init__(self, of_dir, label_json, transform=None):
+        # Handle splitting
+        if isinstance(split, str):
+            self.split = [split]
+        else:
+            self.split = split
 
-        self.of_dir = Path(of_dir)
-        self.labels = json.load(open(label_json))
-        self.files = sorted(self.of_dir.glob("diff_flow_*.npy"))
+        # Load the dataset from the JSON file
+        with open(json_file, 'r') as f:
+            self.data_dict = json.load(f)
+
         self.samples = []
+    
+        label_counts = Counter()
 
-        self.transform = transform
+        for fname in self.data_dict:
+            info = self.data_dict[fname]
 
-        # print(f"Total .npy files found: {len(self.files)}")
-        # print(f"Example .npy file name: {[f.name for f in self.files[:3]]}")
-        # print(f"Example label keys: {list(self.labels.keys())[:5]}")
+            # Filter by the desired split
+            if info["data_type"] in self.split:
+                file_path = os.path.join(self.root_dir, fname)
 
+                if os.path.exists(file_path):
+                    label = 0 if info["speed"] == 0.0 else 1
 
-        for i in range(len(self.files) - 2):
-            file1, file2, file3 = self.files[i:i+3]
-            img1 = file1.stem.replace("diff_flow_", "").replace(".png", "") + ".jpg"
-            img2 = file2.stem.replace("diff_flow_", "").replace(".png", "") + ".jpg"
-            img3 = file3.stem.replace("diff_flow_", "").replace(".png", "") + ".jpg"
-            if img1 in self.labels and img2 in self.labels and img3 in self.labels:
-                speed1 = self.labels[img1]["speed"]
-                speed2 = self.labels[img2]["speed"]
-                speed3 = self.labels[img3]["speed"]
-                label = ((speed2 + speed3) / 2) - ((speed1 + speed2) / 2)
-                self.samples.append((file1, label))
+                    self.samples.append((file_path, label))
+                    label_counts[label] += 1
+
+        print(f"Loaded samples: {len(self.samples)}")
+        print(f"Label counts: {dict(label_counts)}")
+
+        # print("\n (file and label):")
+        # for i in range(min(10, len(self.samples))): 
+        #     file_path, label = self.samples[i]
+        #     print(f"File: {file_path}, Label: {label}")
+
+        if self.balance:
+            # minimum number of class
+            min_count = min(label_counts.values())
+
+            balanced_samples = []
+            for label in [0, 1]:
+                label_samples = [sample for sample in self.samples if sample[1] == label]
+                balanced_samples.extend(random.sample(label_samples, min_count))  # Random sampling
+
+            self.samples = balanced_samples
+            print(f"\nBalanced dataset with {len(self.samples)} samples.")
+        
+
+    def __getitem__(self, index):
+        file_path, label = self.samples[index]
+        data = np.load(file_path)
+
+        tensor = torch.tensor(data, dtype=torch.float32).permute(2, 0, 1)
+        # print(f"Fetching sample: {file_path}, Label: {label}")
+        return tensor, label
 
     def __len__(self):
         return len(self.samples)
 
-    def __getitem__(self, idx):
-        file, label = self.samples[idx]
-        of_tensor = np.load(file)
-        if of_tensor.shape[-1] == 3:
-            of_tensor = of_tensor[:, :, :2]
-        of_tensor = np.transpose(of_tensor, (2, 0, 1))
-        of_tensor = torch.tensor(of_tensor, dtype=torch.float32)
 
-        if self.transform:
-            of_tensor = self.transform(of_tensor)
-        return of_tensor, torch.tensor(label, dtype=torch.float32)
+class OFDatasetEstimation(data.Dataset):
+
+    def __init__(self, json_file, root_dir, split):
+        self.root_dir = root_dir
+
+        if isinstance(split, str):
+            self.split = [split]
+        else:
+            self.split = split
+
+        with open(json_file, 'r') as f:
+            self.data_dict = json.load(f)
+
+        self.samples = []
+
+        for fname in self.data_dict:
+            info = self.data_dict[fname]
+
+           
+            if info["data_type"] in self.split and info["speed"] != 0.0:
+                file_path = os.path.join(self.root_dir, fname)
+
+                if os.path.exists(file_path):
+                    self.samples.append((file_path, info["speed"]))
+
+        print(f"Loaded regression samples (non-zero only): {len(self.samples)}")
+        print("\nSample preview (file path and speed):")
+
+        for i in range(min(10, len(self.samples))):  
+            file_path, speed = self.samples[i]
+            print(f"File: {file_path}, Speed: {speed}")
+
+    def __getitem__(self, index):
+        file_path, speed = self.samples[index]
+        data = np.load(file_path)
+        tensor = torch.tensor(data, dtype=torch.float32).permute(2, 0, 1)
+        return tensor, torch.tensor(speed, dtype=torch.float32)
+
+    def __len__(self):
+        return len(self.samples)

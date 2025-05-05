@@ -138,7 +138,7 @@ class ResNet(nn.Module):
         self.fcOut = nn.Sequential(
             nn.Linear(64, 16),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(0.7),
             nn.Linear(16, 1),
             # nn.Softmax(dim=1)
         )
