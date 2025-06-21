@@ -72,9 +72,9 @@ def create_video_aware_json(of_dir, label_json, output_json):
     print(f"Created video-aware JSON with {len(samples)} samples")
     print(f"Training: {train_end}, Validation: {val_end-train_end}, Testing: {len(samples)-val_end}")
 
-# Example usage
+
 create_video_aware_json(
-    of_dir="flow_diff",
+    of_dir="comma_flow_diff",
         label_json="data_filtered_copy.json",
         output_json="flow_diff.json"
 )

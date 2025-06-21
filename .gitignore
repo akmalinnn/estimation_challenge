@@ -5,7 +5,7 @@
 # Ignore video files
 *.mp4
 
-*.jpg
+
 
 *.rar
 
@@ -18,7 +18,7 @@
 
 *.pt
 
-temp
+
 data/comma_flow
 jsonedit
 data/file_checker.py
