@@ -26,15 +26,14 @@ class OFDatasetRegression(data.Dataset):
             info = self.data_dict[fname]
 
             if info["data_type"] in self.split and info["speed"] != 0.0:
-                if -15.0 <= info["speed"] <= 15.0:
-                    file_path = os.path.join(self.root_dir, fname)
+                file_path = os.path.join(self.root_dir, fname)
 
-                    if os.path.exists(file_path):
-                        sample = (file_path, info["speed"])
-                        if info["speed"] > 0:
-                            positive_samples.append(sample)
-                        elif info["speed"] < 0:
-                            negative_samples.append(sample)
+                if os.path.exists(file_path):
+                    sample = (file_path, info["speed"])
+                    if info["speed"] > 0:
+                        positive_samples.append(sample)
+                    elif info["speed"] < 0:
+                        negative_samples.append(sample)
 
         # Balance counts
         min_count = min(len(positive_samples), len(negative_samples))

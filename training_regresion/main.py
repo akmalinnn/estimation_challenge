@@ -1,7 +1,7 @@
 import torch
 from torch import optim
 from torch.utils.data import DataLoader
-from resnet import ResNet
+from cnn.resnet import ResNet
 from train_reg import train_reg
 from data_loader import OFDatasetRegression
 from torch.optim.lr_scheduler import ReduceLROnPlateau

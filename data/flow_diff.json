@@ -4,7 +4,7 @@
     "data_type": "testing"
   },
   "diff_flow_00_0003_frame_00002.jpg.npy": {
-    "speed": 0.0,
+    "speed": -1.0,
     "data_type": "training"
   },
   "diff_flow_00_0003_frame_00003.jpg.npy": {
@@ -40,19 +40,19 @@
     "data_type": "training"
   },
   "diff_flow_00_0003_frame_00011.jpg.npy": {
-    "speed": 0.0,
+    "speed": 2.0,
     "data_type": "validation"
   },
   "diff_flow_00_0003_frame_00012.jpg.npy": {
-    "speed": 0.0,
+    "speed": 1.0,
     "data_type": "training"
   },
   "diff_flow_00_0003_frame_00013.jpg.npy": {
-    "speed": 0.0,
+    "speed": -3.0,
     "data_type": "validation"
   },
   "diff_flow_00_0003_frame_00014.jpg.npy": {
-    "speed": 0.0,
+    "speed": -1.0,
     "data_type": "validation"
   },
   "diff_flow_00_0003_frame_00015.jpg.npy": {
@@ -116,11 +116,11 @@
     "data_type": "training"
   },
   "diff_flow_00_0003_frame_00030.jpg.npy": {
-    "speed": 0.0,
+    "speed": 1.0,
     "data_type": "testing"
   },
   "diff_flow_00_0003_frame_00031.jpg.npy": {
-    "speed": 0.0,
+    "speed": 3.0,
     "data_type": "validation"
   },
   "diff_flow_00_0003_frame_00032.jpg.npy": {
@@ -128,7 +128,7 @@
     "data_type": "training"
   },
   "diff_flow_00_0003_frame_00033.jpg.npy": {
-    "speed": 0.0,
+    "speed": -1.0,
     "data_type": "testing"
   },
   "diff_flow_00_0003_frame_00034.jpg.npy": {
@@ -368,19 +368,19 @@
     "data_type": "testing"
   },
   "diff_flow_00_0003_frame_00093.jpg.npy": {
-    "speed": 0.0,
+    "speed": 8.0,
     "data_type": "training"
   },
   "diff_flow_00_0003_frame_00094.jpg.npy": {
-    "speed": 0.0,
+    "speed": 5.0,
     "data_type": "validation"
   },
   "diff_flow_00_0003_frame_00095.jpg.npy": {
-    "speed": 0.0,
+    "speed": 1.0,
     "data_type": "validation"
   },
   "diff_flow_00_0003_frame_00096.jpg.npy": {
-    "speed": 0.0,
+    "speed": 1.0,
     "data_type": "training"
   },
   "diff_flow_00_0003_frame_00097.jpg.npy": {
