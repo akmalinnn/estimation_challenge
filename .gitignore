@@ -19,7 +19,3 @@
 *.pt
 
 
-data/comma_flow
-jsonedit
-data/file_checker.py
-data/fix.py

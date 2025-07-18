@@ -28,9 +28,9 @@ def create_video_aware_json(of_dir, label_json, output_json):
         vid3 = get_video_id(file3)
         
         if vid1 == vid2 == vid3:
-            img1 = file1.stem.replace("diff_flow_", "").replace(".png", "") + ".jpg"
-            img2 = file2.stem.replace("diff_flow_", "").replace(".png", "") + ".jpg"
-            img3 = file3.stem.replace("diff_flow_", "").replace(".png", "") + ".jpg"
+            img1 = file1.stem.replace("diff_flow_", "")
+            img2 = file2.stem.replace("diff_flow_", "")
+            img3 = file3.stem.replace("diff_flow_", "")
             
             if all(img in labels for img in [img1, img2, img3]):
                 speed_diff = ((labels[img2]["speed"] + labels[img3]["speed"]) / 2) - \
@@ -74,8 +74,8 @@ def create_video_aware_json(of_dir, label_json, output_json):
 
 
 create_video_aware_json(
-    of_dir="comma_flow_diff",
-        label_json="data_filtered_copy.json",
+    of_dir="flow_diff",
+        label_json="data_filtered.json",
         output_json="flow_diff.json"
 )
 

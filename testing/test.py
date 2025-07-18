@@ -2,8 +2,8 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from data_loader import OFDatasetClf, OFDatasetRegression
-from resnet import ResNet
-from efficientnet import EfficientNet
+from cnn.resnet_clf import ResNet as ResNetClf
+from cnn.resnet_reg import ResNet as ResNetReg
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
 import numpy as np
@@ -12,7 +12,7 @@ def run_inference():
     # Configuration
     of_dir = '../data/flow_diff'
     label_json = '../data/flow_diff.json'
-    model_file = '../result/training_clf/batch size 8/resnet 3/model_CLF_epoch_0030.pt'
+    model_file = 'model/model_CLF_epoch_0050.pt'
     batch_size = 16
     OF_MEAN = [0.5, 0.5]
     OF_STD = [0.5, 0.5]
@@ -28,7 +28,7 @@ def run_inference():
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True)
 
     # Load model
-    model = ResNet(n=3, shortcuts=True)
+    model = ResNetClf(n=3, shortcuts=True)
     # model = EfficientNet.from_name('efficientnet-b0', in_channels=2, num_classes=1)
     model.load_state_dict(torch.load(model_file, map_location='cpu'))
     model.eval()
@@ -71,9 +71,9 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 def run_inference_regression():
     
-    of_dir = 'data/flow_diff'
-    label_json = 'data/flow_diff.json'
-    model_file = 'pretrained\model_REG_epoch_0050.pt'
+    of_dir = '../data/flow_diff'
+    label_json = '../data/flow_diff.json'
+    model_file = 'model/model_REG_epoch_0200.pt'
     batch_size = 16
     OF_MEAN = [0.5, 0.5]
     OF_STD = [0.5, 0.5]
@@ -89,7 +89,7 @@ def run_inference_regression():
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=True)
 
     # Load model
-    model = ResNet(n=3, shortcuts=True)  
+    model = ResNetReg(n=3, shortcuts=True)  
     model.load_state_dict(torch.load(model_file, map_location='cpu'))
     model.eval()
 
@@ -129,4 +129,4 @@ def run_inference_regression():
 
 if __name__ == "__main__":
     run_inference()
-    # run_inference_regression()
+    run_inference_regression()
