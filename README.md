@@ -4,8 +4,6 @@
 **Nama Mahasiswa**: Akmal Nafis  
 **NRP**: 5025211216  
 **Judul TA**: Estimasi Kecepatan Relatif dengan Penghapusan Objek Di Optical Flow  
-**Dosen Pembimbing**: Rully Soelaiman, S.Kom., M.Kom.  
-**Dosen Ko-pembimbing**: Dr. Eng. Muhamad Hilmil Muchtar Aditya Pradana, S.Kom, M.Sc.
 
 ---
 
