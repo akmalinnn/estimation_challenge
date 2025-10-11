@@ -7,11 +7,6 @@
 
 ---
 
-## 📺 Demo Aplikasi  
-
-  [[Demo Aplikasi](https://www.youtube.com/watch?v=yELBGahguIw&feature=youtu.be)]
-
-
 
 # DashFlow
 Proyek ini menyediakan pipeline untuk mengestimasi kecepatan kendaraan menggunakan optical flow pada video dengan model RAFT untuk optical flow dan Sernet-former untuk segmentasi. Pipeline ini mengekstrak frame dari video, menghitung optical flow, menerapkan segmentation mask, serta menghasilkan perbedaan antara flow field dan mengestimasi kecepatan menggunakan model deep learning.
