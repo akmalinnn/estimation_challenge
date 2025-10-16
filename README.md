@@ -227,4 +227,11 @@ tidak menggunakan Ground truth
 
 - Pipeline akan memproses semua file `.mp4` di folder `input videos`
 - Fps pada video sangat berpengaruh, hasil dari internet tidak konsisten. Meskipun saya menggunakan video 24fps/ hasil konversi dari 30fps ke 24fps (untuk menghindari frame duplaicate). Masih mengakibatkan adanya frame noise, pergerakannya berbeda sendiri. Sehingga pada hasil optical flow difference setiap beberapa frame akan muncul frame noise yang sangat berbeda
--  Dibeberapa frame perpindahan pikselnya tidak konsisten, biasanya tiap 6 frame pergerakannya berbeda dari frame sebelumnya. Hal tersebut mengakibatkannya noise (optical flownya berbeda sendiri). Frame tersebut seharusnya tidak dimasukkan dalam proses training. 
+-  Dibeberapa frame perpindahan pikselnya tidak konsisten, biasanya tiap 6 frame pergerakannya berbeda dari frame sebelumnya. Hal tersebut mengakibatkannya noise (optical flownya berbeda sendiri). Frame tersebut seharusnya tidak dimasukkan dalam proses training.
+
+
+![GIF OF](https://github.com/user-attachments/assets/0ebc7803-8d47-4069-aa85-8dd9ac9cf22c)
+<img width="1668" height="496" alt="image" src="https://github.com/user-attachments/assets/4ef64a23-bcb2-474a-8ded-a2379b3c3936" />
+<img width="543" height="217" alt="image" src="https://github.com/user-attachments/assets/bed18efe-0aef-4be1-b905-e0f233601256" />
+
+
